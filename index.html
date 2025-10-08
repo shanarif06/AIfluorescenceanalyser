@@ -170,14 +170,7 @@
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        const USER_FIREBASE_CONFIG = { /* // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const USER_FIREBASE_CONFIG = { /* // // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
   authDomain: "aifluorescenceanalyzer.firebaseapp.com",
@@ -186,11 +179,7 @@ const firebaseConfig = {
   messagingSenderId: "838579082257",
   appId: "1:838579082257:web:e209cc17da65abfb364db0",
   measurementId: "G-F6VPYB1TRW"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app); */ };
+}; */ };
         const firebaseConfig = inCanvas ? JSON.parse(__firebase_config) : USER_FIREBASE_CONFIG;
         const initialAuthToken = inCanvas ? (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null) : null;
 
