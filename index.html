@@ -27,6 +27,7 @@
 <body class="bg-gray-100">
     <div class="min-h-screen flex flex-col items-center p-4 sm:p-8">
         <div id="app-container" class="w-full max-w-4xl bg-white shadow-2xl rounded-2xl p-6 sm:p-10 transition-all duration-300">
+            <!-- Header -->
             <header class="text-center mb-8">
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 flex items-center justify-center space-x-3">
                     <i data-lucide="camera" class="h-7 w-7 sm:h-8 sm:w-8 text-red-500"></i>
@@ -37,8 +38,10 @@
                 </p>
             </header>
 
+            <!-- Status/Error Messages -->
             <div id="status-container"></div>
 
+            <!-- File Upload Section -->
             <div class="mb-8 p-6 bg-indigo-50 rounded-xl border border-indigo-200 shadow-inner">
                 <label for="file-upload" class="flex flex-col items-center justify-center cursor-pointer p-6 border-4 border-dashed border-indigo-400 rounded-xl hover:border-indigo-600 transition duration-150">
                     <i data-lucide="upload" class="w-8 h-8 text-indigo-500"></i>
@@ -49,6 +52,7 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Column 1: Image Preview & RGB -->
                 <div class="flex flex-col space-y-4">
                     <h2 class="text-2xl font-bold text-gray-800 flex items-center">
                         <i data-lucide="camera" class="w-5 h-5 mr-2 text-indigo-500"></i> Image and Measured Data
@@ -64,9 +68,11 @@
                     </div>
                     <canvas id="processing-canvas" style="display: none;"></canvas>
                     <div id="rgb-display" class="flex justify-around p-4 bg-gray-50 rounded-xl shadow-md border">
-                        </div>
+                        <!-- RGB Chips will be inserted here by JS -->
+                    </div>
                 </div>
 
+                <!-- Column 2: AI Prediction & Protocol -->
                 <div class="flex flex-col space-y-6">
                     <h2 class="text-2xl font-bold text-gray-800 flex items-center">
                         <i data-lucide="zap" class="w-5 h-5 mr-2 text-red-500"></i> AI-Enhanced Prediction
@@ -89,6 +95,7 @@
                 </div>
             </div>
 
+            <!-- Results History Section -->
             <hr class="my-10 border-gray-300" />
             <div class="w-full">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center mb-6">
@@ -156,16 +163,474 @@
         };
         
         // --- API & Firebase Config ---
-        // 1. HARDCODED API KEY (Correct)
-        const USER_GEMINI_API_KEY = "AIzaSyCOZH6F6lZoY0LqID-dkkEI37uSBZVJSyA"; 
+        const apiKey = typeof process !== 'undefined' && process.env.REACT_APP_GEMINI_API_KEY ? process.env.REACT_APP_GEMINI_API_KEY : "";
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
-        
-        // 2. HARDCODED MODEL URL (Corrected to Gemini 1.5 Flash)
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${USER_GEMINI_API_KEY}`;
-
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        const USER_FIREBASE_CONFIG = {
-            apiKey:
+        const USER_FIREBASE_CONFIG = { /* PASTE YOUR EXTERNAL CONFIG HERE IF NEEDED */ };
+        const firebaseConfig = inCanvas ? JSON.parse(__firebase_config) : USER_FIREBASE_CONFIG;
+        const initialAuthToken = inCanvas ? (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null) : null;
+
+
+        // --- UI Update Functions ---
+        const renderError = (message, isAuthError = false) => {
+            const errorType = isAuthError ? 'Authentication' : 'Analysis';
+            DOMElements.statusContainer.innerHTML = `
+                <div class="flex items-center p-4 mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                    <i data-lucide="x-circle" class="w-5 h-5 mr-3"></i>
+                    <p class="font-medium">${errorType} Error: ${message}</p>
+                </div>`;
+            lucide.createIcons();
+        };
+
+        const clearError = () => {
+            DOMElements.statusContainer.innerHTML = '';
+        }
+
+        const renderAuthStatus = (message) => {
+            DOMElements.statusContainer.innerHTML = `
+                <div class="flex items-center p-4 mb-6 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg">
+                    <i data-lucide="loader" class="w-5 h-5 mr-3 animate-spin"></i>
+                    <p class="font-medium">${message}</p>
+                </div>`;
+            lucide.createIcons();
+        }
+
+        const updateButtonState = () => {
+            const button = DOMElements.predictButton;
+            const isDisabled = state.isLoading || state.isProtocolLoading || !state.file;
+            button.disabled = isDisabled;
+
+            if (state.isLoading) {
+                button.innerHTML = `<i data-lucide="loader" class="w-5 h-5 mr-2 animate-spin"></i> Analyzing...`;
+                button.className = 'w-full flex justify-center items-center py-3 px-6 text-lg font-semibold rounded-xl shadow-lg transition duration-300 transform bg-gray-400 text-gray-200 cursor-not-allowed';
+            } else if (!state.file) {
+                button.innerHTML = `<i data-lucide="shield-check" class="w-5 h-5 mr-2"></i> Estimate Intensity`;
+                button.className = 'w-full flex justify-center items-center py-3 px-6 text-lg font-semibold rounded-xl shadow-lg transition duration-300 transform bg-indigo-300 text-white cursor-not-allowed';
+            } else {
+                button.innerHTML = `<i data-lucide="shield-check" class="w-5 h-5 mr-2"></i> Estimate Intensity`;
+                button.className = 'w-full flex justify-center items-center py-3 px-6 text-lg font-semibold rounded-xl shadow-lg transition duration-300 transform bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-indigo-300';
+            }
+            lucide.createIcons();
+        };
+        
+        const renderRgbChips = () => {
+            const { r, g, b } = state.rgb;
+            DOMElements.rgbDisplay.innerHTML = `
+                <div class="flex flex-col items-center p-3 rounded-lg shadow-md bg-white border border-gray-200">
+                  <div class="w-10 h-10 rounded-full mb-1 border-2 border-gray-300" style="background-color: rgb(${r}, 0, 0)"></div>
+                  <span class="font-bold text-xl text-red-600">R</span><span class="text-sm text-gray-700">${r}</span>
+                </div>
+                <div class="flex flex-col items-center p-3 rounded-lg shadow-md bg-white border border-gray-200">
+                  <div class="w-10 h-10 rounded-full mb-1 border-2 border-gray-300" style="background-color: rgb(0, ${g}, 0)"></div>
+                  <span class="font-bold text-xl text-green-600">G</span><span class="text-sm text-gray-700">${g}</span>
+                </div>
+                <div class="flex flex-col items-center p-3 rounded-lg shadow-md bg-white border border-gray-200">
+                  <div class="w-10 h-10 rounded-full mb-1 border-2 border-gray-300" style="background-color: rgb(0, 0, ${b})"></div>
+                  <span class="font-bold text-xl text-blue-600">B</span><span class="text-sm text-gray-700">${b}</span>
+                </div>`;
+        };
+
+        const renderImagePreview = () => {
+            if (state.previewUrl) {
+                DOMElements.imagePreviewContainer.className = "relative w-full aspect-[4/3] rounded-xl overflow-hidden shadow-lg border-4 border-gray-300 cursor-pointer";
+                DOMElements.imagePreviewContainer.innerHTML = `
+                    <img src="${state.previewUrl}" alt="Uploaded Fluorescence Sample" class="w-full h-full object-cover pointer-events-none" />
+                    <div class="absolute border-4 border-white rounded-full bg-transparent shadow-[0_0_0_2px_rgba(0,0,0,0.5)] flex items-center justify-center text-xs text-white font-bold backdrop-blur-sm transition-all duration-200"
+                         style="left: ${state.samplePos.x}%; top: ${state.samplePos.y}%; transform: translate(-50%, -50%); width: ${state.roiSize * 0.4}%; height: ${state.roiSize * 0.4}%; pointer-events: none;">
+                         <i data-lucide="mouse-pointer-2" class="w-4 h-4"></i>
+                    </div>
+                    <p class="absolute bottom-2 left-1/2 transform -translate-x-1/2 text-xs font-medium text-white bg-black bg-opacity-50 px-2 py-1 rounded-full shadow-lg">
+                        Click image to set sample point
+                    </p>`;
+                lucide.createIcons();
+            } else {
+                 DOMElements.imagePreviewContainer.className = "relative w-full aspect-[4/3] bg-gray-200 rounded-xl flex items-center justify-center text-gray-500 italic border-4 border-dashed border-gray-400";
+                 DOMElements.imagePreviewContainer.innerHTML = 'Image Preview';
+            }
+        };
+
+        const renderPredictionSummary = () => {
+            if (state.aiResult) {
+                DOMElements.predictionSummary.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="p-3 bg-teal-50 rounded-lg border-l-4 border-teal-500">
+                            <p class="text-lg font-bold text-teal-700">Intensity Score: <span class="text-3xl ml-1">${state.aiResult.intensity_score} / 100</span></p>
+                            <p class="text-sm text-gray-600 mt-1">Color: ${state.aiResult.color_description}</p>
+                        </div>
+                        <p class="text-gray-700"><span class="font-semibold block mt-2">Analysis:</span> ${state.aiResult.analysis_notes}</p>
+                    </div>`;
+            } else {
+                 DOMElements.predictionSummary.innerHTML = `<p class="text-gray-400 italic text-center">Upload an image and click "Estimate Intensity" to see the AI analysis here.</p>`;
+            }
+        };
+
+        const renderSaveButton = () => {
+            if (state.aiResult && state.isAuthReady) {
+                 DOMElements.saveButtonContainer.innerHTML = `
+                    <button id="save-button" class="w-full flex justify-center items-center py-2 px-4 text-md font-semibold rounded-lg text-white bg-green-500 hover:bg-green-600 transition duration-300 shadow-md">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Result to History
+                    </button>`;
+                lucide.createIcons();
+                document.getElementById('save-button').addEventListener('click', saveCurrentResult);
+            } else {
+                DOMElements.saveButtonContainer.innerHTML = '';
+            }
+        };
+        
+        const renderProtocolGenerator = () => {
+            if (state.aiResult) {
+                let buttonContent = state.isProtocolLoading 
+                    ? `<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Generating SOP...`
+                    : `Generate Calibration Protocol`;
+
+                let buttonClasses = state.isProtocolLoading
+                    ? `bg-yellow-400 text-gray-700 cursor-not-allowed`
+                    : `bg-yellow-500 hover:bg-yellow-600 text-white shadow-md`;
+                    
+                DOMElements.protocolGeneratorContainer.innerHTML = `
+                    <div class="p-5 bg-yellow-50 rounded-xl shadow-xl border border-yellow-200">
+                        <h3 class="text-xl font-semibold mb-3 text-gray-700 flex items-center">
+                            <i data-lucide="list-checks" class="w-5 h-5 mr-2 text-yellow-600"></i> Standard Protocol Guidance ✨
+                        </h3>
+                        <button id="generate-protocol-button" class="w-full flex justify-center items-center py-2 px-4 text-sm font-semibold rounded-lg transition duration-300 ${buttonClasses}" ${state.isProtocolLoading ? 'disabled' : ''}>
+                            ${buttonContent}
+                        </button>
+                        ${state.protocol ? `<div class="mt-4 p-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 whitespace-pre-wrap max-h-40 overflow-y-auto">${state.protocol}</div>` : ''}
+                    </div>`;
+                lucide.createIcons();
+                document.getElementById('generate-protocol-button').addEventListener('click', generateStandardProtocol);
+            } else {
+                DOMElements.protocolGeneratorContainer.innerHTML = '';
+            }
+        };
+
+        const renderHistory = () => {
+            DOMElements.historyCount.textContent = state.savedResults.length;
+            if (state.savedResults.length > 0) {
+                DOMElements.historyList.innerHTML = state.savedResults.map(result => `
+                    <div class="p-4 mb-3 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center justify-between transition-all duration-200 hover:shadow-md">
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center space-x-2 text-sm font-semibold text-gray-800">
+                          <i data-lucide="clock" class="w-4 h-4 text-indigo-500"></i>
+                          <span>${new Date(result.timestamp).toLocaleTimeString()} - ${new Date(result.timestamp).toLocaleDateString()}</span>
+                        </div>
+                        <div class="mt-1 text-xs text-gray-600 truncate">
+                          Intensity: <span class="font-bold text-lg text-teal-600">${result.intensity}</span> | Color: ${result.color} | ROI: ${result.roiSize}x${result.roiSize}
+                        </div>
+                      </div>
+                      <button data-id="${result.id}" class="delete-button ml-4 p-2 text-red-500 hover:text-red-700 rounded-full hover:bg-red-50 transition duration-150" title="Delete result">
+                        <i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i>
+                      </button>
+                    </div>
+                `).join('');
+                lucide.createIcons();
+                document.querySelectorAll('.delete-button').forEach(button => {
+                    button.addEventListener('click', (e) => deleteResult(e.currentTarget.dataset.id));
+                });
+            } else {
+                DOMElements.historyList.innerHTML = `
+                    <p class="text-gray-500 italic text-center py-8">
+                        No results saved yet. Analyze an image and click "Save Result to History."
+                        <span id="user-id-display" class="block mt-2 text-xs">User ID: ${state.userId || ''}</span>
+                    </p>`;
+            }
+        };
+        
+        // --- Core Logic Functions ---
+        const fetchWithRetry = async (url, options, retries = 3) => {
+            for (let i = 0; i < retries; i++) {
+              try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response;
+              } catch (e) {
+                if (i < retries - 1) {
+                  const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                  throw e;
+                }
+              }
+            }
+        };
+
+        const extractRGB = (image, pos, size) => {
+            const canvas = DOMElements.canvas;
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+            const width = 100, height = 100;
+            canvas.width = width; canvas.height = height;
+            ctx.drawImage(image, 0, 0, width, height);
+
+            let startX = Math.round((pos.x / 100) * width) - Math.floor(size / 2);
+            let startY = Math.round((pos.y / 100) * height) - Math.floor(size / 2);
+
+            startX = Math.max(0, Math.min(width - size, startX));
+            startY = Math.max(0, Math.min(height - size, startY));
+            
+            const imageData = ctx.getImageData(startX, startY, size, size);
+            const data = imageData.data;
+            let totalR = 0, totalG = 0, totalB = 0;
+            const pixelCount = data.length / 4;
+
+            for (let i = 0; i < data.length; i += 4) {
+                totalR += data[i]; totalG += data[i + 1]; totalB += data[i + 2];
+            }
+            
+            state.rgb = {
+                r: Math.round(totalR / pixelCount),
+                g: Math.round(totalG / pixelCount),
+                b: Math.round(totalB / pixelCount),
+            };
+            renderRgbChips();
+        };
+
+        const resetStateForNewFile = (file) => {
+            state.file = file;
+            state.aiResult = null;
+            state.protocol = '';
+            state.samplePos = { x: 50, y: 50 };
+            clearError();
+            renderPredictionSummary();
+            renderProtocolGenerator();
+            renderSaveButton();
+            updateButtonState();
+        };
+
+        const handleFileChange = (event) => {
+            const selectedFile = event.target.files[0];
+            if (!selectedFile) return;
+
+            resetStateForNewFile(selectedFile);
+            DOMElements.fileNameDisplay.textContent = selectedFile.name;
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                state.base64Image = reader.result.split(',')[1];
+                state.previewUrl = reader.result;
+                renderImagePreview();
+
+                const img = new Image();
+                img.onload = () => extractRGB(img, state.samplePos, state.roiSize);
+                img.src = reader.result;
+            };
+            reader.onerror = () => renderError("Failed to read file.");
+            reader.readAsDataURL(selectedFile);
+        };
+        
+        const handleImageClick = (e) => {
+            if (!state.previewUrl || state.isLoading) return;
+
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            state.samplePos = { x: (x / rect.width) * 100, y: (y / rect.height) * 100 };
+            state.aiResult = null;
+            state.protocol = '';
+            
+            renderImagePreview();
+            renderPredictionSummary();
+            renderProtocolGenerator();
+            renderSaveButton();
+
+            const img = new Image();
+            img.onload = () => extractRGB(img, state.samplePos, state.roiSize);
+            img.src = state.previewUrl;
+        };
+
+        const handleRoiChange = (e) => {
+            state.roiSize = parseInt(e.target.value, 10);
+            DOMElements.roiLabel.textContent = `${state.roiSize}x${state.roiSize}`;
+            state.aiResult = null;
+            state.protocol = '';
+
+            renderPredictionSummary();
+            renderProtocolGenerator();
+            renderSaveButton();
+            renderImagePreview();
+
+            if (state.previewUrl) {
+                const img = new Image();
+                img.onload = () => extractRGB(img, state.samplePos, state.roiSize);
+                img.src = state.previewUrl;
+            }
+        };
+
+        // --- AI & Data Functions ---
+        const getAiPrediction = async () => {
+            if (!state.base64Image) {
+              renderError('Please upload an image first.');
+              return;
+            }
+            state.isLoading = true; state.aiResult = null; state.protocol = ''; clearError();
+            updateButtonState(); renderPredictionSummary(); renderProtocolGenerator();
+
+            const prompt = `You are a highly sensitive and quantitative Spectrophotometric Analysis Engine specializing in image-based chemical sensing. Your task is to estimate the **Relative Fluorescence Intensity (RFI)** of the chemical sample shown in the image, providing a high-confidence score between 0 and 100. INPUT DATA: Image, Sample Point (${state.samplePos.x.toFixed(1)}%, ${state.samplePos.y.toFixed(1)}%), ROI Size: ${state.roiSize}x${state.roiSize}, Measured Average RGB: R:${state.rgb.r}, G:${state.rgb.g}, B:${state.rgb.b}. ANALYSIS CRITERIA: Use RGB magnitude as primary input. Assess visual context. Determine dominant color. Provide brief technical analysis. Your final output MUST strictly adhere to the provided JSON schema.`;
+            const systemPrompt = "You are a specialized materials sensing analysis engine. Your only output must be a single JSON object. Do not include any text outside of the JSON block.";
+            const payload = {
+              contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: state.file.type, data: state.base64Image } }] }],
+              systemInstruction: { parts: [{ text: systemPrompt }] },
+              generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: { type: "OBJECT", properties: { "intensity_score": { "type": "INTEGER" }, "color_description": { "type": "STRING" }, "analysis_notes": { "type": "STRING" }}, "required": ["intensity_score", "color_description", "analysis_notes"] }
+              }
+            };
+
+            try {
+                const response = await fetchWithRetry(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    state.aiResult = JSON.parse(jsonText);
+                } else {
+                    throw new Error("AI model returned an unexpected or empty response.");
+                }
+            } catch (e) {
+                renderError(`Failed to get AI prediction: ${e.message}. Ensure your image is clearly visible.`);
+            } finally {
+                state.isLoading = false;
+                updateButtonState();
+                renderPredictionSummary();
+                renderSaveButton();
+                renderProtocolGenerator();
+            }
+        };
+        
+        const generateStandardProtocol = async () => {
+            if (!state.aiResult) {
+                renderError("Please run an AI prediction first.");
+                return;
+            }
+            state.isProtocolLoading = true; state.protocol = '';
+            renderProtocolGenerator(); updateButtonState();
+            
+            const protocolPrompt = `Generate a very brief, three-step standard operating procedure (SOP) for preparing a basic stock solution or calibration standards for a fluorescence sensing experiment involving a material that fluoresces the color: ${state.aiResult.color_description}. The material shows ${state.aiResult.intensity_score}/100 intensity. Focus on common lab materials and glassware.`;
+            const protocolPayload = {
+              contents: [{ parts: [{ text: protocolPrompt }] }],
+              tools: [{ "google_search": {} }],
+              systemInstruction: { parts: [{ text: "You are a laboratory automation assistant. Provide the SOP as a concise, numbered list of steps, without any introduction or conclusion." }] },
+            };
+            
+            try {
+                const response = await fetchWithRetry(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolPayload) });
+                const result = await response.json();
+                state.protocol = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Could not generate a relevant standard protocol.';
+            } catch (e) {
+                state.protocol = 'An error occurred during protocol generation.';
+            } finally {
+                state.isProtocolLoading = false;
+                renderProtocolGenerator(); updateButtonState();
+            }
+        };
+
+        const saveCurrentResult = async () => {
+            if (!state.db || !state.userId) return renderError("Database is not ready.");
+            if (!state.aiResult || !state.previewUrl) return renderError("Please run an AI prediction first.");
+            
+            const resultData = {
+              timestamp: new Date().toISOString(),
+              roiSize: state.roiSize,
+              samplePos: state.samplePos,
+              rgb: state.rgb,
+              intensity: state.aiResult.intensity_score,
+              color: state.aiResult.color_description,
+              notes: state.aiResult.analysis_notes,
+              protocol: state.protocol
+            };
+
+            try {
+              const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
+              await addDoc(resultsCollectionRef, resultData);
+              renderError("Result successfully saved!");
+              setTimeout(clearError, 2000);
+            } catch (e) {
+              renderError("Failed to save result.");
+            }
+        };
+
+        const deleteResult = async (id) => {
+            if (!state.db || !state.userId) return;
+            try {
+              const docRef = doc(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results', id);
+              await deleteDoc(docRef);
+            } catch (e) {
+              renderError("Failed to delete result.");
+            }
+        };
+        
+        // --- Initialization ---
+        const init = () => {
+            lucide.createIcons();
+            
+            // Initial UI setup
+            renderRgbChips();
+            updateButtonState();
+
+            // Event Listeners
+            DOMElements.fileInput.addEventListener('change', handleFileChange);
+            DOMElements.roiSlider.addEventListener('input', handleRoiChange);
+            DOMElements.imagePreviewContainer.addEventListener('click', handleImageClick);
+            DOMElements.predictButton.addEventListener('click', getAiPrediction);
+            
+            // Firebase setup
+            renderAuthStatus("Initializing database and user session...");
+            setLogLevel('Debug');
+            try {
+                const app = initializeApp(firebaseConfig);
+                state.auth = getAuth(app);
+                state.db = getFirestore(app);
+
+                onAuthStateChanged(state.auth, user => {
+                    if (user) {
+                        state.userId = user.uid;
+                        state.isAuthReady = true;
+                        clearError();
+                        
+                        // Setup Firestore listener now that we are authenticated
+                        const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
+                        const q = query(resultsCollectionRef);
+                        onSnapshot(q, (snapshot) => {
+                            const results = [];
+                            snapshot.forEach((doc) => {
+                                results.push({ id: doc.id, ...doc.data() });
+                            });
+                            results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                            state.savedResults = results;
+                            renderHistory();
+                        }, (error) => {
+                           renderError("Could not load saved results from database.");
+                        });
+
+                    }
+                });
+
+                // Trigger authentication
+                const authenticate = async () => {
+                     if (initialAuthToken) {
+                        await signInWithCustomToken(state.auth, initialAuthToken);
+                     } else {
+                        await signInAnonymously(state.auth);
+                     }
+                };
+                authenticate().catch(e => {
+                    state.isAuthReady = false;
+                    renderError(`Firebase sign-in failed: ${e.message}`, true);
+                });
+
+            } catch(e) {
+                renderError(`Firebase initialization failed: ${e.message}. If deploying externally, ensure you have provided your Firebase config.`, true);
+            }
+        };
+
+        // Run on DOM load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
+
