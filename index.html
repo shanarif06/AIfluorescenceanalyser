@@ -170,8 +170,7 @@
         
         // Use the Canvas-provided key if available, otherwise use the user-provided key.
         const apiKey = inCanvas ? (typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : "") : USER_GEMINI_API_KEY;
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
