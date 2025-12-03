@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smartphone Sensing Analyzer</title>
+    <title>Smartphone Sensing Analyzer V3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +31,7 @@
             <header class="text-center mb-8">
                 <h1 class="text-3xl sm:text-4xl font-extrabold text-indigo-700 flex items-center justify-center space-x-3">
                     <i data-lucide="camera" class="h-7 w-7 sm:h-8 sm:w-8 text-red-500"></i>
-                    <span>Smartphone Sensing Analyzer</span>
+                    <span>Sensing Analyzer V3</span>
                 </h1>
                 <p class="mt-2 text-md sm:text-lg text-gray-500">
                     Extract RGB, analyze with AI, and track your experiments.
@@ -165,7 +165,7 @@
         
         // --- API & Firebase Config ---
         
-        // 1. GEMINI API KEY (Correctly populated)
+        // 1. GEMINI API KEY (Confirmed)
         const apiKey = "AIzaSyDS6G3vvykVBNTbs1-jPIT51DBCx1M9BOM"; 
         
         // 2. FIXED MODEL VERSION (gemini-1.5-flash)
@@ -175,7 +175,7 @@
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        // 3. FIREBASE CONFIG (Correctly populated)
+        // 3. FIREBASE CONFIG (Confirmed)
         const USER_FIREBASE_CONFIG = { 
             apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
             authDomain: "aifluorescenceanalyzer.firebaseapp.com",
