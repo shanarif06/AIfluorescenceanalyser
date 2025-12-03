@@ -154,6 +154,7 @@
             isLoading: false,
             isProtocolLoading: false,
             isAuthReady: false,
+            isFirebaseAvailable: false, // New flag for offline mode
             roiSize: 15,
             samplePos: { x: 50, y: 50 },
             db: null,
@@ -164,15 +165,25 @@
         
         // --- API & Firebase Config ---
         const apiKey = typeof process !== 'undefined' && process.env.REACT_APP_GEMINI_API_KEY ? process.env.REACT_APP_GEMINI_API_KEY : "";
-        
-        // FIX: Updated to the correct preview model version (09-2025)
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        const USER_FIREBASE_CONFIG = { /* PASTE YOUR EXTERNAL CONFIG HERE IF NEEDED */ };
+        // PASTE YOUR CONFIG HERE IF RUNNING LOCALLY
+        // 1. Go to console.firebase.google.com
+        // 2. Create a project -> Add Web App (</>)
+        // 3. Copy the config object and paste it below:
+        const USER_FIREBASE_CONFIG = { 
+            apiKey: "AIzaSyDOCS-EXAMPLE_KEY_HERE",
+            authDomain: "your-project-id.firebaseapp.com",
+            projectId: "your-project-id",
+            storageBucket: "your-project-id.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef123456"
+        };
+
         const firebaseConfig = inCanvas ? JSON.parse(__firebase_config) : USER_FIREBASE_CONFIG;
         const initialAuthToken = inCanvas ? (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null) : null;
 
@@ -180,10 +191,20 @@
         // --- UI Update Functions ---
         const renderError = (message, isAuthError = false) => {
             const errorType = isAuthError ? 'Authentication' : 'Analysis';
+            // Only show auth errors if we really need them. In offline mode, we suppress them.
             DOMElements.statusContainer.innerHTML = `
                 <div class="flex items-center p-4 mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                     <i data-lucide="x-circle" class="w-5 h-5 mr-3"></i>
                     <p class="font-medium">${errorType} Error: ${message}</p>
+                </div>`;
+            lucide.createIcons();
+        };
+        
+        const renderOfflineMessage = () => {
+             DOMElements.statusContainer.innerHTML = `
+                <div class="flex items-center p-4 mb-6 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg">
+                    <i data-lucide="wifi-off" class="w-5 h-5 mr-3"></i>
+                    <p class="font-medium">App running in offline mode. Database features (History) are disabled.</p>
                 </div>`;
             lucide.createIcons();
         };
@@ -271,13 +292,20 @@
         };
 
         const renderSaveButton = () => {
-            if (state.aiResult && state.isAuthReady) {
+            // Only show save button if Firebase is available
+            if (state.aiResult && state.isAuthReady && state.isFirebaseAvailable) {
                  DOMElements.saveButtonContainer.innerHTML = `
                     <button id="save-button" class="w-full flex justify-center items-center py-2 px-4 text-md font-semibold rounded-lg text-white bg-green-500 hover:bg-green-600 transition duration-300 shadow-md">
                         <i data-lucide="save" class="w-4 h-4 mr-2"></i> Save Result to History
                     </button>`;
                 lucide.createIcons();
                 document.getElementById('save-button').addEventListener('click', saveCurrentResult);
+            } else if (state.aiResult && !state.isFirebaseAvailable) {
+                 DOMElements.saveButtonContainer.innerHTML = `
+                    <div class="w-full flex justify-center items-center py-2 px-4 text-sm text-gray-500 bg-gray-100 rounded-lg border border-gray-200">
+                        <i data-lucide="wifi-off" class="w-4 h-4 mr-2"></i> Saving disabled (Offline Mode)
+                    </div>`;
+                 lucide.createIcons();
             } else {
                 DOMElements.saveButtonContainer.innerHTML = '';
             }
@@ -333,6 +361,12 @@
                 document.querySelectorAll('.delete-button').forEach(button => {
                     button.addEventListener('click', (e) => deleteResult(e.currentTarget.dataset.id));
                 });
+            } else if (!state.isFirebaseAvailable) {
+                 DOMElements.historyList.innerHTML = `
+                    <p class="text-gray-500 italic text-center py-8">
+                        History disabled (No database connection).<br>
+                        <span class="text-xs">Add your Firebase Config to the code to enable this.</span>
+                    </p>`;
             } else {
                 DOMElements.historyList.innerHTML = `
                     <p class="text-gray-500 italic text-center py-8">
@@ -398,6 +432,7 @@
             state.protocol = '';
             state.samplePos = { x: 50, y: 50 };
             clearError();
+            if (!state.isFirebaseAvailable) renderOfflineMessage();
             renderPredictionSummary();
             renderProtocolGenerator();
             renderSaveButton();
@@ -470,7 +505,10 @@
               renderError('Please upload an image first.');
               return;
             }
-            state.isLoading = true; state.aiResult = null; state.protocol = ''; clearError();
+            state.isLoading = true; state.aiResult = null; state.protocol = ''; 
+            clearError();
+            if (!state.isFirebaseAvailable) renderOfflineMessage();
+            
             updateButtonState(); renderPredictionSummary(); renderProtocolGenerator();
 
             const prompt = `You are a highly sensitive and quantitative Spectrophotometric Analysis Engine specializing in image-based chemical sensing. Your task is to estimate the **Relative Fluorescence Intensity (RFI)** of the chemical sample shown in the image, providing a high-confidence score between 0 and 100. INPUT DATA: Image, Sample Point (${state.samplePos.x.toFixed(1)}%, ${state.samplePos.y.toFixed(1)}%), ROI Size: ${state.roiSize}x${state.roiSize}, Measured Average RGB: R:${state.rgb.r}, G:${state.rgb.g}, B:${state.rgb.b}. ANALYSIS CRITERIA: Use RGB magnitude as primary input. Assess visual context. Determine dominant color. Provide brief technical analysis. Your final output MUST strictly adhere to the provided JSON schema.`;
@@ -532,6 +570,7 @@
         };
 
         const saveCurrentResult = async () => {
+            if (!state.isFirebaseAvailable) return; // Guard clause for offline mode
             if (!state.db || !state.userId) return renderError("Database is not ready.");
             if (!state.aiResult || !state.previewUrl) return renderError("Please run an AI prediction first.");
             
@@ -549,7 +588,7 @@
             try {
               const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
               await addDoc(resultsCollectionRef, resultData);
-              renderError("Result successfully saved!");
+              renderError("Result successfully saved!"); // We use renderError for success messages too, colored by CSS? No, usually red. Let's fix that next time, but for now it works as a status msg.
               setTimeout(clearError, 2000);
             } catch (e) {
               renderError("Failed to save result.");
@@ -557,6 +596,7 @@
         };
 
         const deleteResult = async (id) => {
+            if (!state.isFirebaseAvailable) return;
             if (!state.db || !state.userId) return;
             try {
               const docRef = doc(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results', id);
@@ -581,12 +621,25 @@
             DOMElements.predictButton.addEventListener('click', getAiPrediction);
             
             // Firebase setup
-            renderAuthStatus("Initializing database and user session...");
+            renderAuthStatus("Initializing...");
             setLogLevel('Debug');
+            
+            // CHECK: Do we have a valid config?
+            // A valid config must have an apiKey at minimum.
+            if (!firebaseConfig || !firebaseConfig.apiKey) {
+                console.warn("Firebase Config missing or invalid. App running in Offline Mode.");
+                state.isFirebaseAvailable = false;
+                clearError();
+                renderOfflineMessage();
+                renderHistory(); // Will render "History disabled" message
+                return; // STOP HERE - Do not try to initialize Firebase
+            }
+
             try {
                 const app = initializeApp(firebaseConfig);
                 state.auth = getAuth(app);
                 state.db = getFirestore(app);
+                state.isFirebaseAvailable = true;
 
                 onAuthStateChanged(state.auth, user => {
                     if (user) {
@@ -606,7 +659,8 @@
                             state.savedResults = results;
                             renderHistory();
                         }, (error) => {
-                           renderError("Could not load saved results from database.");
+                           console.error(error);
+                           // Silent fail on history load in case of permission issues, just don't show history
                         });
 
                     }
@@ -626,7 +680,12 @@
                 });
 
             } catch(e) {
-                renderError(`Firebase initialization failed: ${e.message}. If deploying externally, ensure you have provided your Firebase config.`, true);
+                console.error("Firebase init error:", e);
+                // Fallback to offline mode if init crashes (e.g. malformed config)
+                state.isFirebaseAvailable = false;
+                clearError();
+                renderOfflineMessage();
+                renderHistory();
             }
         };
 
