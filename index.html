@@ -165,17 +165,17 @@
         
         // --- API & Firebase Config ---
         
-        // 1. GEMINI API KEY (Updated to the one you provided)
+        // 1. GEMINI API KEY (Correctly populated)
         const apiKey = "AIzaSyDS6G3vvykVBNTbs1-jPIT51DBCx1M9BOM"; 
         
-        // 2. FIXED MODEL VERSION (Using standard flash to avoid 404s)
+        // 2. FIXED MODEL VERSION (gemini-1.5-flash)
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        // 3. FIREBASE CONFIG (I have pre-filled this for you!)
+        // 3. FIREBASE CONFIG (Correctly populated)
         const USER_FIREBASE_CONFIG = { 
             apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
             authDomain: "aifluorescenceanalyzer.firebaseapp.com",
