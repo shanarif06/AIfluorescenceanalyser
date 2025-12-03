@@ -163,27 +163,16 @@
         };
         
         // --- API & Firebase Config ---
-        // IMPORTANT: For external deployment (like Netlify), you must provide your own Gemini API key.
-        const USER_GEMINI_API_KEY = "AIzaSyCOZH6F6lZoY0LqID-dkkEI37uSBZVJSyA"; // <-- PASTE YOUR GEMINI API KEY HERE
+        const apiKey = typeof process !== 'undefined' && process.env.REACT_APP_GEMINI_API_KEY ? process.env.REACT_APP_GEMINI_API_KEY : "";
+        
+        // FIX: Updated to the correct preview model version (09-2025)
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
-        
-        // Use the Canvas-provided key if available, otherwise use the user-provided key.
-        const apiKey = inCanvas ? (typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : "") : USER_GEMINI_API_KEY;
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        const USER_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
-            authDomain: "aifluorescenceanalyzer.firebaseapp.com",
-            projectId: "aifluorescenceanalyzer",
-            storageBucket: "aifluorescenceanalyzer.appspot.com",
-            messagingSenderId: "838579082257",
-            appId: "1:838579082257:web:e209cc17da65abfb364db0",
-            measurementId: "G-F6VPYB1TRW"
-        };
+        const USER_FIREBASE_CONFIG = { /* PASTE YOUR EXTERNAL CONFIG HERE IF NEEDED */ };
         const firebaseConfig = inCanvas ? JSON.parse(__firebase_config) : USER_FIREBASE_CONFIG;
         const initialAuthToken = inCanvas ? (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null) : null;
 
@@ -646,9 +635,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
