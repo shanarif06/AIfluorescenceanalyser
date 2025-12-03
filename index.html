@@ -154,7 +154,7 @@
             isLoading: false,
             isProtocolLoading: false,
             isAuthReady: false,
-            isFirebaseAvailable: false, // New flag for offline mode
+            isFirebaseAvailable: false, 
             roiSize: 15,
             samplePos: { x: 50, y: 50 },
             db: null,
@@ -164,17 +164,20 @@
         };
         
         // --- API & Firebase Config ---
-        const apiKey = typeof process !== 'undefined' && process.env.REACT_APP_GEMINI_API_KEY ? process.env.REACT_APP_GEMINI_API_KEY : "";
+        
+        // -------------------------------------------------------------------------
+        // IMPORTANT: PASTE YOUR GEMINI API KEY HERE
+        // Get one for free at: https://aistudio.google.com/app/apikey
+        // -------------------------------------------------------------------------
+        const apiKey = "AIzaSyCOZH6F6lZoY0LqID-dkkEI37uSBZVJSyA"; 
+        
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        // PASTE YOUR CONFIG HERE IF RUNNING LOCALLY
-        // 1. Go to console.firebase.google.com
-        // 2. Create a project -> Add Web App (</>)
-        // 3. Copy the config object and paste it below:
+        // I have kept your Firebase keys here so you don't lose them!
         const USER_FIREBASE_CONFIG = { 
             apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
             authDomain: "aifluorescenceanalyzer.firebaseapp.com",
@@ -192,7 +195,6 @@
         // --- UI Update Functions ---
         const renderError = (message, isAuthError = false) => {
             const errorType = isAuthError ? 'Authentication' : 'Analysis';
-            // Only show auth errors if we really need them. In offline mode, we suppress them.
             DOMElements.statusContainer.innerHTML = `
                 <div class="flex items-center p-4 mb-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
                     <i data-lucide="x-circle" class="w-5 h-5 mr-3"></i>
@@ -506,6 +508,12 @@
               renderError('Please upload an image first.');
               return;
             }
+            // CHECK FOR MISSING KEY
+            if (apiKey.includes("PASTE_YOUR_GEMINI_API_KEY_HERE") || apiKey === "") {
+                renderError("Missing Gemini API Key. Please edit the code to add your key from aistudio.google.com.");
+                return;
+            }
+
             state.isLoading = true; state.aiResult = null; state.protocol = ''; 
             clearError();
             if (!state.isFirebaseAvailable) renderOfflineMessage();
@@ -548,6 +556,11 @@
                 renderError("Please run an AI prediction first.");
                 return;
             }
+            if (apiKey.includes("PASTE_YOUR_GEMINI_API_KEY_HERE") || apiKey === "") {
+                renderError("Missing Gemini API Key.");
+                return;
+            }
+
             state.isProtocolLoading = true; state.protocol = '';
             renderProtocolGenerator(); updateButtonState();
             
@@ -589,7 +602,7 @@
             try {
               const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
               await addDoc(resultsCollectionRef, resultData);
-              renderError("Result successfully saved!"); // We use renderError for success messages too, colored by CSS? No, usually red. Let's fix that next time, but for now it works as a status msg.
+              renderError("Result successfully saved!"); 
               setTimeout(clearError, 2000);
             } catch (e) {
               renderError("Failed to save result.");
@@ -626,14 +639,13 @@
             setLogLevel('Debug');
             
             // CHECK: Do we have a valid config?
-            // A valid config must have an apiKey at minimum.
-            if (!firebaseConfig || !firebaseConfig.apiKey) {
+            if (!firebaseConfig || !firebaseConfig.apiKey || firebaseConfig.apiKey.includes("YOUR_API_KEY")) {
                 console.warn("Firebase Config missing or invalid. App running in Offline Mode.");
                 state.isFirebaseAvailable = false;
                 clearError();
                 renderOfflineMessage();
-                renderHistory(); // Will render "History disabled" message
-                return; // STOP HERE - Do not try to initialize Firebase
+                renderHistory();
+                return;
             }
 
             try {
@@ -648,7 +660,6 @@
                         state.isAuthReady = true;
                         clearError();
                         
-                        // Setup Firestore listener now that we are authenticated
                         const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
                         const q = query(resultsCollectionRef);
                         onSnapshot(q, (snapshot) => {
@@ -661,13 +672,11 @@
                             renderHistory();
                         }, (error) => {
                            console.error(error);
-                           // Silent fail on history load in case of permission issues, just don't show history
                         });
 
                     }
                 });
 
-                // Trigger authentication
                 const authenticate = async () => {
                      if (initialAuthToken) {
                         await signInWithCustomToken(state.auth, initialAuthToken);
@@ -682,7 +691,6 @@
 
             } catch(e) {
                 console.error("Firebase init error:", e);
-                // Fallback to offline mode if init crashes (e.g. malformed config)
                 state.isFirebaseAvailable = false;
                 clearError();
                 renderOfflineMessage();
