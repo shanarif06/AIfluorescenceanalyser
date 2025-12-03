@@ -168,11 +168,10 @@
         // -------------------------------------------------------------------------
         // GEMINI API KEY
         // -------------------------------------------------------------------------
-        // Updated with your new key:
         const apiKey = "AIzaSyDS6G3vvykVBNTbs1-jPIT51DBCx1M9BOM"; 
         
-        // Using the standard, stable model to avoid 404 errors
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        // FIX: Using specific version 'gemini-1.5-flash-002' to avoid 404 "model not found" errors
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-002:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
