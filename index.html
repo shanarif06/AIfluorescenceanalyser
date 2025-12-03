@@ -168,16 +168,17 @@
         // -------------------------------------------------------------------------
         // GEMINI API KEY
         // -------------------------------------------------------------------------
-        const apiKey = "AIzaSyCOZH6F6lZoY0LqID-dkkEI37uSBZVJSyA"; 
+        // Updated with your new key:
+        const apiKey = "AIzaSyDS6G3vvykVBNTbs1-jPIT51DBCx1M9BOM"; 
         
-        // FIX: Switched to 'gemini-1.5-flash' which is the Stable version.
-        // The previous 'preview' version might be restricted on some keys.
+        // Using the standard, stable model to avoid 404 errors
         const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
+        // I have pre-filled your Firebase keys here!
         const USER_FIREBASE_CONFIG = { 
             apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
             authDomain: "aifluorescenceanalyzer.firebaseapp.com",
@@ -513,8 +514,8 @@
               return;
             }
             // CHECK FOR MISSING KEY
-            if (apiKey.includes("PASTE_YOUR_GEMINI_API_KEY_HERE") || apiKey === "") {
-                renderError("Missing Gemini API Key. Please edit the code to add your key from aistudio.google.com.");
+            if (apiKey.includes("PASTE_NEW_KEY_HERE") || apiKey === "") {
+                renderError("Missing Gemini API Key. Please edit the code to add your new key from aistudio.google.com.");
                 return;
             }
 
@@ -560,7 +561,7 @@
                 renderError("Please run an AI prediction first.");
                 return;
             }
-            if (apiKey.includes("PASTE_YOUR_GEMINI_API_KEY_HERE") || apiKey === "") {
+            if (apiKey.includes("PASTE_NEW_KEY_HERE") || apiKey === "") {
                 renderError("Missing Gemini API Key.");
                 return;
             }
