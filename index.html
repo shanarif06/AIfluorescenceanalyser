@@ -166,18 +166,18 @@
         // --- API & Firebase Config ---
         
         // -------------------------------------------------------------------------
-        // IMPORTANT: PASTE YOUR GEMINI API KEY HERE
-        // Get one for free at: https://aistudio.google.com/app/apikey
+        // GEMINI API KEY
         // -------------------------------------------------------------------------
         const apiKey = "AIzaSyCOZH6F6lZoY0LqID-dkkEI37uSBZVJSyA"; 
         
-        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        // FIX: Switched to 'gemini-1.5-flash' which is the Stable version.
+        // The previous 'preview' version might be restricted on some keys.
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
-        // I have kept your Firebase keys here so you don't lose them!
         const USER_FIREBASE_CONFIG = { 
             apiKey: "AIzaSyAcn0mAt7ZHJSSOFPKpuP3Qe_MUhc-38wk",
             authDomain: "aifluorescenceanalyzer.firebaseapp.com",
@@ -384,7 +384,11 @@
             for (let i = 0; i < retries; i++) {
               try {
                 const response = await fetch(url, options);
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("API Error Details:", errorBody); // Log details for debug
+                    throw new Error(`HTTP error! status: ${response.status} - ${errorBody.slice(0, 100)}...`);
+                }
                 return response;
               } catch (e) {
                 if (i < retries - 1) {
