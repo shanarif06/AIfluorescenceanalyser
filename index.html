@@ -473,8 +473,10 @@
 
             const prompt = `You are a highly sensitive and quantitative Spectrophotometric Analysis Engine specializing in image-based chemical sensing. Your task is to estimate the **Relative Fluorescence Intensity (RFI)** of the chemical sample shown in the image, providing a high-confidence score between 0 and 100. INPUT DATA: Image, Sample Point (${state.samplePos.x.toFixed(1)}%, ${state.samplePos.y.toFixed(1)}%), ROI Size: ${state.roiSize}x${state.roiSize}, Measured Average RGB: R:${state.rgb.r}, G:${state.rgb.g}, B:${state.rgb.b}. ANALYSIS CRITERIA: Use RGB magnitude as primary input. Assess visual context. Determine dominant color. Provide brief technical analysis. Your final output MUST strictly adhere to the provided JSON schema.`;
             const systemPrompt = "You are a specialized materials sensing analysis engine. Your only output must be a single JSON object. Do not include any text outside of the JSON block.";
+            
+            // FIXED: Changed inlineData to inline_data with proper REST API structure
             const payload = {
-              contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: state.file.type, data: state.base64Image } }] }],
+              contents: [{ role: "user", parts: [{ text: prompt }, { inline_data: { mime_type: state.file.type, data: state.base64Image } }] }],
               systemInstruction: { parts: [{ text: systemPrompt }] },
               generationConfig: {
                 responseMimeType: "application/json",
