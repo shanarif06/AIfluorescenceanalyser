@@ -524,10 +524,9 @@ const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/ge
             
             const protocolPrompt = `Generate a very brief, three-step standard operating procedure (SOP) for preparing a basic stock solution or calibration standards for a fluorescence sensing experiment involving a material that fluoresces the color: ${state.aiResult.color_description}. The material shows ${state.aiResult.intensity_score}/100 intensity. Focus on common lab materials and glassware.`;
             const protocolPayload = {
-              contents: [{ parts: [{ text: protocolPrompt }] }],
-              tools: [{ "google_search": {} }],
-              systemInstruction: { parts: [{ text: "You are a laboratory automation assistant. Provide the SOP as a concise, numbered list of steps, without any introduction or conclusion." }] },
-            };
+  contents: [{ parts: [{ text: protocolPrompt }] }],
+  systemInstruction: { parts: [{ text: "You are a laboratory automation assistant. Provide the SOP as a concise, numbered list of steps, without any introduction or conclusion." }] },
+}; 
             
             try {
                 const response = await fetchWithRetry(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolPayload) });
