@@ -87,7 +87,7 @@
                         <div id="prediction-summary">
                              <p class="text-gray-400 italic text-center">
                                 Upload an image and click "Estimate Intensity" to see the AI analysis here.
-                            </p>
+                             </p>
                         </div>
                     </div>
                     <div id="save-button-container"></div>
@@ -106,7 +106,7 @@
                          <p class="text-gray-500 italic text-center py-8">
                             No results saved yet. Analyze an image and click "Save Result to History."
                             <span id="user-id-display" class="block mt-2 text-xs"></span>
-                        </p>
+                         </p>
                     </div>
                 </div>
             </div>
@@ -163,14 +163,12 @@
         };
         
         // --- API & Firebase Config ---
-        // IMPORTANT: For external deployment (like Netlify), you must provide your own Gemini API key.
-        const USER_GEMINI_API_KEY = "AIzaSyCWXxYIlWcIwg_Z54g3wOw4ZG3Iz5hO4fI"; // <-- PASTE YOUR GEMINI API KEY HERE
+        const USER_GEMINI_API_KEY = "AIzaSyCWXxYIlWcIwg_Z54g3wOw4ZG3Iz5hO4fI"; 
 
         const inCanvas = typeof __firebase_config !== 'undefined';
         
-        // Use the Canvas-provided key if available, otherwise use the user-provided key.
         const apiKey = inCanvas ? (typeof __gemini_api_key !== 'undefined' ? __gemini_api_key : "") : USER_GEMINI_API_KEY;
-const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+        const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
         const appId = inCanvas ? (typeof __app_id !== 'undefined' ? __app_id : 'default-canvas-app-id') : "external-sensing-app"; 
         DOMElements.appIdDisplay.textContent = `Application ID: ${appId}`;
         
@@ -186,7 +184,6 @@ const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/ge
         const firebaseConfig = inCanvas ? JSON.parse(__firebase_config) : USER_FIREBASE_CONFIG;
         const initialAuthToken = inCanvas ? (typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null) : null;
 
-
         // --- UI Update Functions ---
         const renderError = (message, isAuthError = false) => {
             const errorType = isAuthError ? 'Authentication' : 'Analysis';
@@ -200,15 +197,6 @@ const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/ge
 
         const clearError = () => {
             DOMElements.statusContainer.innerHTML = '';
-        }
-
-        const renderAuthStatus = (message) => {
-            DOMElements.statusContainer.innerHTML = `
-                <div class="flex items-center p-4 mb-6 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg">
-                    <i data-lucide="loader" class="w-5 h-5 mr-3 animate-spin"></i>
-                    <p class="font-medium">${message}</p>
-                </div>`;
-            lucide.createIcons();
         }
 
         const updateButtonState = () => {
@@ -524,9 +512,9 @@ const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/ge
             
             const protocolPrompt = `Generate a very brief, three-step standard operating procedure (SOP) for preparing a basic stock solution or calibration standards for a fluorescence sensing experiment involving a material that fluoresces the color: ${state.aiResult.color_description}. The material shows ${state.aiResult.intensity_score}/100 intensity. Focus on common lab materials and glassware.`;
             const protocolPayload = {
-  contents: [{ parts: [{ text: protocolPrompt }] }],
-  systemInstruction: { parts: [{ text: "You are a laboratory automation assistant. Provide the SOP as a concise, numbered list of steps, without any introduction or conclusion." }] },
-}; 
+              contents: [{ parts: [{ text: protocolPrompt }] }],
+              systemInstruction: { parts: [{ text: "You are a laboratory automation assistant. Provide the SOP as a concise, numbered list of steps, without any introduction or conclusion." }] },
+            }; 
             
             try {
                 const response = await fetchWithRetry(geminiApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(protocolPayload) });
@@ -558,95 +546,75 @@ const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/ge
             try {
               const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
               await addDoc(resultsCollectionRef, resultData);
-              renderError("Result successfully saved!");
-              setTimeout(clearError, 2000);
+              clearError();
             } catch (e) {
-              renderError("Failed to save result.");
+              renderError("Failed to save result to history.");
             }
         };
 
         const deleteResult = async (id) => {
             if (!state.db || !state.userId) return;
             try {
-              const docRef = doc(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results', id);
-              await deleteDoc(docRef);
+                await deleteDoc(doc(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results', id));
             } catch (e) {
-              renderError("Failed to delete result.");
+                renderError("Failed to delete record.");
             }
         };
-        
-        // --- Initialization ---
-        const init = () => {
-            lucide.createIcons();
-            
-            // Initial UI setup
-            renderRgbChips();
-            updateButtonState();
 
-            // Event Listeners
-            DOMElements.fileInput.addEventListener('change', handleFileChange);
-            DOMElements.roiSlider.addEventListener('input', handleRoiChange);
-            DOMElements.imagePreviewContainer.addEventListener('click', handleImageClick);
-            DOMElements.predictButton.addEventListener('click', getAiPrediction);
-            
-            // Firebase setup
-            renderAuthStatus("Initializing database and user session...");
-            setLogLevel('Debug');
+        // --- Firebase Initialization & Auth ---
+        const initFirebase = async () => {
             try {
                 const app = initializeApp(firebaseConfig);
-                state.auth = getAuth(app);
-                state.db = getFirestore(app);
+                const db = getFirestore(app);
+                const auth = getAuth(app);
+                setLogLevel('silent');
 
-                onAuthStateChanged(state.auth, user => {
+                state.db = db;
+                state.auth = auth;
+
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         state.userId = user.uid;
                         state.isAuthReady = true;
-                        clearError();
-                        
-                        // Setup Firestore listener now that we are authenticated
-                        const resultsCollectionRef = collection(state.db, 'artifacts', appId, 'users', state.userId, 'sensing_results');
-                        const q = query(resultsCollectionRef);
-                        onSnapshot(q, (snapshot) => {
-                            const results = [];
-                            snapshot.forEach((doc) => {
-                                results.push({ id: doc.id, ...doc.data() });
-                            });
-                            results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                            state.savedResults = results;
-                            renderHistory();
-                        }, (error) => {
-                           renderError("Could not load saved results from database.");
-                        });
-
+                        if(DOMElements.userIdDisplay) DOMElements.userIdDisplay.textContent = `User ID: ${user.uid}`;
+                        renderSaveButton();
+                        setupFirestoreListener(db, user.uid);
+                    } else {
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (err) {
+                            renderError("Authentication failed.", true);
+                        }
                     }
                 });
-
-                // Trigger authentication
-                const authenticate = async () => {
-                     if (initialAuthToken) {
-                        await signInWithCustomToken(state.auth, initialAuthToken);
-                     } else {
-                        await signInAnonymously(state.auth);
-                     }
-                };
-                authenticate().catch(e => {
-                    state.isAuthReady = false;
-                    renderError(`Firebase sign-in failed: ${e.message}`, true);
-                });
-
-            } catch(e) {
-                renderError(`Firebase initialization failed: ${e.message}. If deploying externally, ensure you have provided your Firebase config.`, true);
+            } catch (e) {
+                renderError("Failed to initialize backend storage.", true);
             }
         };
 
-        // Run on DOM load
-        document.addEventListener('DOMContentLoaded', init);
+        const setupFirestoreListener = (db, uid) => {
+            const q = query(collection(db, 'artifacts', appId, 'users', uid, 'sensing_results'));
+            onSnapshot(q, (snapshot) => {
+                state.savedResults = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderHistory();
+            }, (error) => {
+                console.error("Firestore listener error:", error);
+            });
+        };
+
+        // --- Event Listeners Binding ---
+        DOMElements.fileInput.addEventListener('change', handleFileChange);
+        DOMElements.predictButton.addEventListener('click', getAiPrediction);
+        DOMElements.roiSlider.addEventListener('input', handleRoiChange);
+        DOMElements.imagePreviewContainer.addEventListener('click', handleImageClick);
+
+        // Run Initialization
+        initFirebase();
+        lucide.createIcons();
     </script>
 </body>
 </html>
-
-
-
-
-
-
